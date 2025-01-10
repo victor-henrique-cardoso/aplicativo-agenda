@@ -144,7 +144,7 @@ class _AgendaHomePageState extends State<AgendaHomePage> {
                       .delete();
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                        content: Text('Tarefa excluída com sucesso!')),
+                        content: Text('Tarefa excluída com sucesso!'),backgroundColor: Minhascores.Rosapastel),
                   );
                 },
                 confirmDismiss: (DismissDirection direction) async {

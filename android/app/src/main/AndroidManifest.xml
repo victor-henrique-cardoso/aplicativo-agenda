@@ -1,8 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
+    
         android:label="Agenda digital"
         android:name="${applicationName}"
-        android:icon="@mipmap/launcher_icon">
+        android:icon="@mipmap/launcher_icon"
+        android:requestLegacyExternalStorage="true"
+        android:permission="android.permission.POST_NOTIFICATIONS">
         <activity
             android:name=".MainActivity"
             android:exported="true"
