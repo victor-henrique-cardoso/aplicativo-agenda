@@ -10,10 +10,12 @@ import 'package:intl/intl.dart';
 class AgendaHomePage extends StatefulWidget {
   final User user; // Representa o usuário atualmente autenticado.
 
-  AgendaHomePage({super.key, required this.user}); // Construtor que exige o usuário.
+  AgendaHomePage(
+      {super.key, required this.user}); // Construtor que exige o usuário.
 
   @override
-  _AgendaHomePageState createState() => _AgendaHomePageState(); // Cria o estado do widget.
+  _AgendaHomePageState createState() =>
+      _AgendaHomePageState(); // Cria o estado do widget.
 }
 
 class _AgendaHomePageState extends State<AgendaHomePage> {
@@ -27,10 +29,12 @@ class _AgendaHomePageState extends State<AgendaHomePage> {
       appBar: AppBar(
         title: const Text('Minha Agenda'), // Título da barra superior.
         centerTitle: true, // Centraliza o título.
-        backgroundColor: Minhascores.Rosapastel, // Define a cor de fundo da AppBar.
+        backgroundColor:
+            Minhascores.Rosapastel, // Define a cor de fundo da AppBar.
       ),
       drawer: Drawer(
-        backgroundColor: Minhascores.brancosuave, // Cor de fundo do menu lateral.
+        backgroundColor:
+            Minhascores.brancosuave, // Cor de fundo do menu lateral.
         child: ListView(
           children: [
             // Cabeçalho do menu lateral com informações do usuário.
@@ -39,9 +43,11 @@ class _AgendaHomePageState extends State<AgendaHomePage> {
                 backgroundImage: AssetImage("assets/imagem/logoagenda.png"),
               ),
               accountName: Text((widget.user.displayName != null)
-                  ? widget.user.displayName! // Exibe o nome do usuário, se disponível.
+                  ? widget.user
+                      .displayName! // Exibe o nome do usuário, se disponível.
                   : ""),
-              accountEmail: Text(widget.user.email!), // Exibe o e-mail do usuário.
+              accountEmail:
+                  Text(widget.user.email!), // Exibe o e-mail do usuário.
             ),
             // Opção de logout no menu lateral.
             ListTile(
@@ -76,88 +82,114 @@ class _AgendaHomePageState extends State<AgendaHomePage> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          // Lista de eventos com base nos dados recebidos do Firestore.
-          return ListView(
-            children: snapshot.data!.docs.map((DocumentSnapshot document) {
-              Map<String, dynamic> data =
-                  document.data()! as Map<String, dynamic>; // Converte o documento para Map.
+          // Filtra e ordena os eventos com base na proximidade da data.
+          List<Map<String, dynamic>> eventosOrdenados = snapshot.data!.docs
+              .map((DocumentSnapshot document) {
+                Map<String, dynamic> data = document.data()!
+                    as Map<String, dynamic>; // Converte o documento para Map.
 
-              // Exibe apenas os eventos do usuário atual.
-              if (data['userId'] == widget.user.uid) {
-                // Formata a data e a hora do evento, se disponíveis.
-                String dataHoraFormatada = "Sem data";
-                if (data['dataHora'] != null) {
-                  DateTime dateTime;
-                  if (data['dataHora'] is Timestamp) {
-                    dateTime = (data['dataHora'] as Timestamp).toDate();
-                  } else {
-                    dateTime = DateTime.parse(data['dataHora']);
+                // Adiciona apenas eventos do usuário atual.
+                if (data['userId'] == widget.user.uid) {
+                  DateTime? dataHora;
+                  if (data['dataHora'] != null) {
+                    if (data['dataHora'] is Timestamp) {
+                      dataHora = (data['dataHora'] as Timestamp).toDate();
+                    } else {
+                      dataHora = DateTime.parse(data['dataHora']);
+                    }
                   }
-                  dataHoraFormatada =
-                      DateFormat('dd/MM/yyyy HH:mm').format(dateTime); // Formata a data.
+                  return {
+                    'id': document.id,
+                    'titulo': data['titulo'] ?? "Sem título",
+                    'dataHora': dataHora,
+                    'concluido': data['concluido'] ?? false,
+                  };
                 }
+                return null;
+              })
+              .where((evento) => evento != null) // Remove os nulos.
+              .cast<Map<String, dynamic>>()
+              .toList();
 
-                // Permite excluir tarefas deslizando para a direita.
-                return Dismissible(
-                  key: Key(document.id), // Identificador único do item.
-                  onDismissed: (direction) async {
-                    await document.reference.delete(); // Remove o evento do Firestore.
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Tarefa excluída com sucesso!'),
-                      ),
-                    );
-                  },
-                  // Confirmação antes de excluir a tarefa.
-                  confirmDismiss: (DismissDirection direction) async {
-                    return await showDialog(
-                      context: context,
-                      builder: (BuildContext context) {
-                        return AlertDialog(
-                          title: const Text('Confirmar exclusão'),
-                          content: const Text(
-                              'Deseja realmente excluir esta tarefa?'),
-                          actions: <Widget>[
-                            // Botão para cancelar a exclusão.
-                            TextButton(
-                              onPressed: () => Navigator.pop(context, false),
-                              child: const Text('Cancelar'),
-                            ),
-                            // Botão para confirmar a exclusão.
-                            TextButton(
-                              onPressed: () => Navigator.pop(context, true),
-                              child: const Text('Excluir'),
-                            ),
-                          ],
-                        );
-                      },
-                    );
-                  },
-                  // Fundo vermelho com ícone de lixeira ao deslizar.
-                  background: Container(
-                    color: Colors.red,
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.only(right: 20.0),
-                    child: const Icon(Icons.delete, color: Colors.white),
-                  ),
-                  // Exibição do evento na lista.
-                  child: ListTile(
-                    title: Text(data['titulo'] ?? "Sem título"), // Título do evento.
-                    subtitle: Text(dataHoraFormatada), // Data e hora do evento.
-                    trailing: Checkbox(
-                      value: data['concluido'] ?? false, // Status de conclusão.
-                      onChanged: (value) async {
-                        // Atualiza o status de conclusão no Firestore.
-                        await document.reference.update({'concluido': value});
-                      },
-                    ),
-                  ),
-                );
-              } else {
-                // Retorna um widget vazio se o evento não pertence ao usuário.
-                return const SizedBox();
+          // Ordena pela data e hora mais próximas.
+          eventosOrdenados.sort((a, b) {
+            final dataHoraA = a['dataHora'];
+            final dataHoraB = b['dataHora'];
+
+            if (dataHoraA == null && dataHoraB == null) return 0;
+            if (dataHoraA == null)
+              return 1; // Eventos sem data vão para o final.
+            if (dataHoraB == null) return -1;
+            return dataHoraA.compareTo(dataHoraB); // Ordem crescente.
+          });
+
+          // Constrói a lista de tarefas ordenadas.
+          return ListView.builder(
+            itemCount: eventosOrdenados.length,
+            itemBuilder: (context, index) {
+              final evento = eventosOrdenados[index];
+
+              String dataHoraFormatada = "Sem data";
+              if (evento['dataHora'] != null) {
+                dataHoraFormatada =
+                    DateFormat('dd/MM/yyyy HH:mm').format(evento['dataHora']);
               }
-            }).toList(),
+
+              return Dismissible(
+                key: Key(evento['id']),
+                onDismissed: (direction) async {
+                  await FirebaseFirestore.instance
+                      .collection('eventos')
+                      .doc(evento['id'])
+                      .delete();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Tarefa excluída com sucesso!')),
+                  );
+                },
+                confirmDismiss: (DismissDirection direction) async {
+                  return await showDialog(
+                    context: context,
+                    builder: (BuildContext context) {
+                      return AlertDialog(
+                        title: const Text('Confirmar exclusão'),
+                        content:
+                            const Text('Deseja realmente excluir esta tarefa?'),
+                        actions: <Widget>[
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('Cancelar'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text('Excluir'),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+                background: Container(
+                  color: Colors.red,
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.only(right: 20.0),
+                  child: const Icon(Icons.delete, color: Colors.white),
+                ),
+                child: ListTile(
+                  title: Text(evento['titulo']),
+                  subtitle: Text(dataHoraFormatada),
+                  trailing: Checkbox(
+                    value: evento['concluido'],
+                    onChanged: (value) async {
+                      await FirebaseFirestore.instance
+                          .collection('eventos')
+                          .doc(evento['id'])
+                          .update({'concluido': value});
+                    },
+                  ),
+                ),
+              );
+            },
           );
         },
       ),
