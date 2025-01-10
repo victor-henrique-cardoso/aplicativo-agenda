@@ -8,6 +8,7 @@ import 'package:agendaapp/Telas/teladeagenda.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+  
   // Inicializa o Firebase com as configurações do arquivo firebase_options.dart.
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
