@@ -1,3 +1,4 @@
+import 'package:agendaapp/Telas/Tela_de_escolha.dart';
 import 'package:agendaapp/Telas/Tela_login.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -47,7 +48,7 @@ class Roteadortela extends StatelessWidget {
       stream: FirebaseAuth.instance.userChanges(), // Fluxo que notifica alterações no usuário autenticado.
       builder: (context, snapshot) {
         if (snapshot.hasData) { // Verifica se há um usuário autenticado.
-          return AgendaHomePage( // Exibe a tela principal da agenda se o usuário estiver autenticado.
+          return TelaDeEscolha( // Exibe a tela principal da agenda se o usuário estiver autenticado.
             user: snapshot.data!, // Passa os dados do usuário para a tela.
           );
         } else { // Caso contrário, exibe a tela de login.

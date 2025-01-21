@@ -32,35 +32,7 @@ class _AgendaHomePageState extends State<AgendaHomePage> {
         backgroundColor:
             Minhascores.Rosapastel, // Define a cor de fundo da AppBar.
       ),
-      drawer: Drawer(
-        backgroundColor:
-            Minhascores.brancosuave, // Cor de fundo do menu lateral.
-        child: ListView(
-          children: [
-            // Cabeçalho do menu lateral com informações do usuário.
-            UserAccountsDrawerHeader(
-              currentAccountPicture: const CircleAvatar(
-                backgroundImage: AssetImage("assets/imagem/logoagenda.png"),
-              ),
-              accountName: Text((widget.user.displayName != null)
-                  ? widget.user
-                      .displayName! // Exibe o nome do usuário, se disponível.
-                  : ""),
-              accountEmail:
-                  Text(widget.user.email!), // Exibe o e-mail do usuário.
-            ),
-            // Opção de logout no menu lateral.
-            ListTile(
-              leading: const Icon(Icons.logout_sharp),
-              onTap: () {
-                AutenticacaoServico().deslogar(); // Chama o serviço de logout.
-              },
-              title: const Text("Deslogar"), // Texto da opção.
-              dense: true,
-            ),
-          ],
-        ),
-      ),
+    
       // Botão flutuante para adicionar novas tarefas.
       floatingActionButton: FloatingActionButton(
         child: const Icon(Icons.add_box_outlined), // Ícone do botão.
