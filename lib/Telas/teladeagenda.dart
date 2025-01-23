@@ -1,66 +1,66 @@
 import 'package:agendaapp/_comum/minhascores.dart';
 import 'package:agendaapp/_comum/modal_add_agenda.dart';
-import 'package:agendaapp/serivco/altenticacao_serivco.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
-// Widget principal da página inicial da agenda, que recebe o usuário autenticado.
 class AgendaHomePage extends StatefulWidget {
-  final User user; // Representa o usuário atualmente autenticado.
+  final User user;
 
-  AgendaHomePage(
-      {super.key, required this.user}); // Construtor que exige o usuário.
+  AgendaHomePage({super.key, required this.user});
 
   @override
-  _AgendaHomePageState createState() =>
-      _AgendaHomePageState(); // Cria o estado do widget.
+  _AgendaHomePageState createState() => _AgendaHomePageState();
 }
 
 class _AgendaHomePageState extends State<AgendaHomePage> {
-  // Stream para monitorar mudanças na coleção 'eventos' do Firestore.
   final Stream<QuerySnapshot> _eventosStream =
       FirebaseFirestore.instance.collection('eventos').snapshots();
+
+  void _excluirEvento(String id) async {
+    try {
+      await FirebaseFirestore.instance.collection('eventos').doc(id).delete();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Evento excluído com sucesso!')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Erro ao excluir o evento.')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Minha Agenda'), // Título da barra superior.
-        centerTitle: true, // Centraliza o título.
-        backgroundColor:
-            Minhascores.Rosapastel, // Define a cor de fundo da AppBar.
+        title: const Text('Minha Agenda'),
+        centerTitle: true,
+        backgroundColor: Minhascores.Rosapastel,
       ),
-    
-      // Botão flutuante para adicionar novas tarefas.
       floatingActionButton: FloatingActionButton(
-        child: const Icon(Icons.add_box_outlined), // Ícone do botão.
+        child: const Icon(Icons.add_box_outlined),
         onPressed: () {
-          mostramodalcriaragenda(context); // Abre o modal para criar tarefas.
+          mostramodalcriaragenda(context);
         },
       ),
-      backgroundColor: Minhascores.begeclaro, // Cor de fundo da tela.
+      backgroundColor: Minhascores.begeclaro,
       body: StreamBuilder<QuerySnapshot>(
-        stream: _eventosStream, // Monitora mudanças na coleção 'eventos'.
+        stream: _eventosStream,
         builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> snapshot) {
           if (snapshot.hasError) {
-            // Exibe mensagem de erro se houver problema na stream.
             return const Center(child: Text('Algo deu errado'));
           }
 
           if (snapshot.connectionState == ConnectionState.waiting) {
-            // Exibe indicador de carregamento enquanto aguarda os dados.
             return const Center(child: CircularProgressIndicator());
           }
 
-          // Filtra e ordena os eventos com base na proximidade da data.
           List<Map<String, dynamic>> eventosOrdenados = snapshot.data!.docs
               .map((DocumentSnapshot document) {
-                Map<String, dynamic> data = document.data()!
-                    as Map<String, dynamic>; // Converte o documento para Map.
+                Map<String, dynamic> data = document.data() as Map<String, dynamic>;
 
-                // Adiciona apenas eventos do usuário atual.
                 if (data['userId'] == widget.user.uid) {
                   DateTime? dataHora;
                   if (data['dataHora'] != null) {
@@ -79,23 +79,20 @@ class _AgendaHomePageState extends State<AgendaHomePage> {
                 }
                 return null;
               })
-              .where((evento) => evento != null) // Remove os nulos.
+              .where((evento) => evento != null)
               .cast<Map<String, dynamic>>()
               .toList();
 
-          // Ordena pela data e hora mais próximas.
           eventosOrdenados.sort((a, b) {
             final dataHoraA = a['dataHora'];
             final dataHoraB = b['dataHora'];
 
             if (dataHoraA == null && dataHoraB == null) return 0;
-            if (dataHoraA == null)
-              return 1; // Eventos sem data vão para o final.
+            if (dataHoraA == null) return 1;
             if (dataHoraB == null) return -1;
-            return dataHoraA.compareTo(dataHoraB); // Ordem crescente.
+            return dataHoraA.compareTo(dataHoraB);
           });
 
-          // Constrói a lista de tarefas ordenadas.
           return ListView.builder(
             itemCount: eventosOrdenados.length,
             itemBuilder: (context, index) {
@@ -107,57 +104,68 @@ class _AgendaHomePageState extends State<AgendaHomePage> {
                     DateFormat('dd/MM/yyyy HH:mm').format(evento['dataHora']);
               }
 
-              return Dismissible(
-                key: Key(evento['id']),
-                onDismissed: (direction) async {
-                  await FirebaseFirestore.instance
-                      .collection('eventos')
-                      .doc(evento['id'])
-                      .delete();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('Tarefa excluída com sucesso!'),backgroundColor: Minhascores.Rosapastel),
-                  );
-                },
-                confirmDismiss: (DismissDirection direction) async {
-                  return await showDialog(
-                    context: context,
-                    builder: (BuildContext context) {
-                      return AlertDialog(
-                        title: const Text('Confirmar exclusão'),
-                        content:
-                            const Text('Deseja realmente excluir esta tarefa?'),
-                        actions: <Widget>[
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            child: const Text('Cancelar'),
+              return Card(
+                margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+                elevation: 10,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12.0),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        evento['titulo'],
+                        style: const TextStyle(
+                          fontSize: 18.0,
+                          fontWeight: FontWeight.bold,
+                          color: Minhascores.Rosapastel,
+                        ),
+                      ),
+                      const SizedBox(height: 8.0),
+                      Text(
+                        dataHoraFormatada,
+                        style: TextStyle(
+                          fontSize: 14.0,
+                          color: Colors.grey[700],
+                        ),
+                      ),
+                      const SizedBox(height: 12.0),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            evento['concluido'] ? 'Concluído' : 'Pendente',
+                            style: TextStyle(
+                              fontSize: 14.0,
+                              color: evento['concluido']
+                                  ? Colors.green
+                                  : Colors.red,
+                            ),
                           ),
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, true),
-                            child: const Text('Excluir'),
+                          Row(
+                            children: [
+                              Checkbox(
+                                value: evento['concluido'],
+                                onChanged: (value) async {
+                                  await FirebaseFirestore.instance
+                                      .collection('eventos')
+                                      .doc(evento['id'])
+                                      .update({'concluido': value});
+                                },
+                              ),
+                              // Exibe o botão de exclusão apenas se o evento estiver concluído.
+                              if (evento['concluido'])
+                                IconButton(
+                                  icon: const Icon(Icons.delete, color: Colors.red),
+                                  onPressed: () => _excluirEvento(evento['id']),
+                                ),
+                            ],
                           ),
                         ],
-                      );
-                    },
-                  );
-                },
-                background: Container(
-                  color: Colors.red,
-                  alignment: Alignment.centerRight,
-                  padding: const EdgeInsets.only(right: 20.0),
-                  child: const Icon(Icons.delete, color: Colors.white),
-                ),
-                child: ListTile(
-                  title: Text(evento['titulo']),
-                  subtitle: Text(dataHoraFormatada),
-                  trailing: Checkbox(
-                    value: evento['concluido'],
-                    onChanged: (value) async {
-                      await FirebaseFirestore.instance
-                          .collection('eventos')
-                          .doc(evento['id'])
-                          .update({'concluido': value});
-                    },
+                      ),
+                    ],
                   ),
                 ),
               );
