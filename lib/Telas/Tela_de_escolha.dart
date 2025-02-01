@@ -4,7 +4,7 @@ import 'package:agendaapp/_comum/minhascores.dart';
 import 'package:agendaapp/serivco/altenticacao_serivco.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // Import necessário para o User
 import 'package:flutter/material.dart';
-
+import 'Diario.dart';
 class TelaDeEscolha extends StatelessWidget {
   final User user; // Parâmetro do usuário autenticado
 
@@ -73,6 +73,19 @@ class TelaDeEscolha extends StatelessWidget {
                 );
               },
               child: const Text('Escola'),
+            ),
+              const SizedBox(height: 20),
+                  ElevatedButton(
+              onPressed: () {
+                // Navegar para a tela de agendamento da Escola
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const Diario(),
+                  ),
+                );
+              },
+              child: const Text('Diario'),
             ),
           ],
         ),

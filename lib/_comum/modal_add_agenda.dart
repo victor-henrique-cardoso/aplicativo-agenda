@@ -6,10 +6,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
-import 'package:permission_handler/permission_handler.dart'; // Importando o permission_handler
+import 'package:permission_handler/permission_handler.dart';
 
-// Função que exibe um modal para criar uma nova tarefa no aplicativo.
-mostramodalcriaragenda(BuildContext context) {
+void mostramodalcriaragenda(BuildContext context) {
   showModalBottomSheet(
     context: context,
     backgroundColor: Minhascores.Rosapastel,
@@ -26,49 +25,6 @@ mostramodalcriaragenda(BuildContext context) {
   );
 }
 
-// Função para inicializar notificações.
-final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-    FlutterLocalNotificationsPlugin();
-
-Future<void> _initNotifications() async {
-  const AndroidInitializationSettings initializationSettingsAndroid =
-      AndroidInitializationSettings('@mipmap/ic_launcher');
-  const InitializationSettings initializationSettings =
-      InitializationSettings(android: initializationSettingsAndroid);
-  await flutterLocalNotificationsPlugin.initialize(initializationSettings);
-}
-
-Future<void> criarCanalNotificacao() async {
-  const AndroidNotificationChannel canal = AndroidNotificationChannel(
-    'agenda_channel',
-    'Agenda Notificações',
-    description: 'Notificações para tarefas agendadas',
-    importance: Importance.high,
-  );
-  await flutterLocalNotificationsPlugin
-      .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>()
-      ?.createNotificationChannel(canal);
-}
-
-// Função para criar o canal de notificações.
-
-// Função para solicitar permissão de notificações utilizando permission_handler.
-Future<void> solicitarPermissaoNotificacao() async {
-  final status = await Permission.notification.request();
-
-  if (status.isGranted) {
-    print("Permissão de notificação concedida!");
-  } else if (status.isDenied) {
-    print("Permissão de notificação negada!");
-  } else if (status.isPermanentlyDenied) {
-    // Caso o usuário tenha negado permanentemente, abre as configurações do aplicativo
-    print("Permissão de notificação permanentemente negada!");
-    openAppSettings(); // Isso abrirá a tela de configurações para o usuário conceder a permissão manualmente
-  }
-}
-
-// Widget Stateful para criar a agenda.
 class Criaragenda extends StatefulWidget {
   const Criaragenda({super.key});
 
@@ -81,7 +37,13 @@ class _CriaragendaState extends State<Criaragenda> {
   final TextEditingController _novaTarefa = TextEditingController();
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
+  String? _selectedDay;
   bool isCarregando = false;
+
+  final List<String> _diasSemana = [
+    'Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 
+    'Quinta-feira', 'Sexta-feira', 'Sábado'
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -109,13 +71,8 @@ class _CriaragendaState extends State<Criaragenda> {
                       ),
                     ),
                     IconButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
-                      icon: const Icon(
-                        Icons.close,
-                        color: Minhascores.brancosuave,
-                      ),
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close, color: Minhascores.brancosuave),
                     ),
                   ],
                 ),
@@ -127,12 +84,31 @@ class _CriaragendaState extends State<Criaragenda> {
                     "Nova tarefa",
                     icons: const Icon(Icons.assignment_add),
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Por favor, insira uma tarefa';
-                    }
-                    return null;
+                  validator: (value) => value == null || value.isEmpty
+                      ? 'Por favor, insira uma tarefa'
+                      : null,
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  decoration: getAuthenticationinputDecoration(
+                    "Dia da semana",
+                    icons: const Icon(Icons.calendar_today),
+                  ),
+                  value: _selectedDay,
+                  items: _diasSemana.map((String dia) {
+                    return DropdownMenuItem<String>(
+                      value: dia,
+                      child: Text(dia),
+                    );
+                  }).toList(),
+                  onChanged: (String? newValue) {
+                    setState(() {
+                      _selectedDay = newValue;
+                    });
                   },
+                  validator: (value) => value == null
+                      ? 'Por favor, selecione um dia da semana'
+                      : null,
                 ),
                 const SizedBox(height: 16),
                 ElevatedButton(
@@ -178,13 +154,7 @@ class _CriaragendaState extends State<Criaragenda> {
             ElevatedButton(
               onPressed: isCarregando ? null : _salvarEvento,
               child: isCarregando
-                  ? const SizedBox(
-                      height: 16,
-                      width: 16,
-                      child: CircularProgressIndicator(
-                        color: Minhascores.rozabaixo,
-                      ),
-                    )
+                  ? const CircularProgressIndicator(color: Minhascores.rozabaixo)
                   : const Text("Salvar"),
             ),
           ],
@@ -203,76 +173,23 @@ class _CriaragendaState extends State<Criaragenda> {
     String userId = FirebaseAuth.instance.currentUser!.uid;
 
     try {
-      // Caso o usuário não tenha escolhido data e hora
-      if (_selectedDate == null || _selectedTime == null) {
-        // Salvar a tarefa sem data e hora
-        await FirebaseFirestore.instance.collection('eventos').add({
-          'userId': userId,
-          'titulo': _novaTarefa.text,
-          'terminado': false,
-        });
-      } else {
-        // Caso o usuário tenha escolhido data e hora
-        final eventoDataHora = DateTime(
-          _selectedDate!.year,
-          _selectedDate!.month,
-          _selectedDate!.day,
-          _selectedTime!.hour,
-          _selectedTime!.minute,
-        );
-
-        await FirebaseFirestore.instance.collection('eventos').add({
-          'userId': userId,
-          'titulo': _novaTarefa.text,
-          'dataHora': eventoDataHora.toIso8601String(),
-          'terminado': false,
-        });
-
-        // Definir a hora da notificação (um lembrete antes da tarefa)
-        final tz.TZDateTime scheduleTime = tz.TZDateTime.from(
-          eventoDataHora.subtract(const Duration(hours: 1)),
-          tz.local,
-        );
-
-        if (scheduleTime.isBefore(tz.TZDateTime.now(tz.local))) {
-          print('Erro: O horário agendado já passou.');
-          return;
-        }
-
-        // Agendar a notificação
-        await flutterLocalNotificationsPlugin.zonedSchedule(
-          0,
-          'Lembrete de Tarefa',
-          'Você tem uma tarefa agendada para ${DateFormat('HH:mm').format(eventoDataHora)}',
-          scheduleTime,
-          const NotificationDetails(
-            android: AndroidNotificationDetails(
-              'canal_agenda',
-              'Agenda Notificações',
-              channelDescription: 'Notificações para tarefas agendadas',
-              importance: Importance.high,
-              priority: Priority.high,
-            ),
-          ),
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-          uiLocalNotificationDateInterpretation:
-              UILocalNotificationDateInterpretation.wallClockTime,
-        );
-      }
+      await FirebaseFirestore.instance.collection('eventos').add({
+        'userId': userId,
+        'titulo': _novaTarefa.text,
+        'diaSemana': _selectedDay,
+        'dataHora': _selectedDate?.toIso8601String(),
+        'terminado': false,
+      });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tarefa adicionada com sucesso!' ),
-         backgroundColor: Minhascores.Rosapastel),
+        const SnackBar(content: Text('Tarefa adicionada com sucesso!'), backgroundColor: Minhascores.Rosapastel),
       );
 
       _novaTarefa.clear();
       _selectedDate = null;
       _selectedTime = null;
+      _selectedDay = null;
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tarefa adicionada com sucesso!' ),
-         backgroundColor: Minhascores.Rosapastel),
-      );
       print('Erro ao salvar evento: $e');
     } finally {
       setState(() {

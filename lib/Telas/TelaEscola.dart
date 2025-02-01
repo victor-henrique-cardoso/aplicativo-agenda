@@ -12,13 +12,13 @@ class TelaAgendaEscolar extends StatefulWidget {
   @override
   _TelaAgendaEscolarState createState() => _TelaAgendaEscolarState();
 }
-
 class _TelaAgendaEscolarState extends State<TelaAgendaEscolar> {
   final _firestore = FirebaseFirestore.instance;
 
   final TextEditingController _tituloController = TextEditingController();
   DateTime? _dataHoraSelecionada;
   String _prioridadeSelecionada = "Média";
+  String _diaSemanaSelecionado = 'Segunda-feira';
 
   void _mostrarModalAdicionarTarefa(BuildContext context) {
     showModalBottomSheet(
@@ -64,6 +64,21 @@ class _TelaAgendaEscolarState extends State<TelaAgendaEscolar> {
                 },
               ),
               const SizedBox(height: 16),
+              DropdownButton<String>(
+                value: _diaSemanaSelecionado,
+                items: ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado', 'Domingo'].map((String dia) {
+                  return DropdownMenuItem<String>(
+                    value: dia,
+                    child: Text(dia),
+                  );
+                }).toList(),
+                onChanged: (String? novoDia) {
+                  setState(() {
+                    _diaSemanaSelecionado = novoDia ?? 'Segunda-feira';
+                  });
+                },
+              ),
+              const SizedBox(height: 16),
               TextButton(
                 onPressed: () async {
                   final dataHoraEscolhida = await showDatePicker(
@@ -97,19 +112,25 @@ class _TelaAgendaEscolarState extends State<TelaAgendaEscolar> {
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () async {
-                  if (_tituloController.text.isNotEmpty &&
-                      _dataHoraSelecionada != null) {
-                    await _firestore.collection('tarefas_escolares').add({
+                  if (_tituloController.text.isNotEmpty) {
+                    final tarefaData = {
                       'titulo': _tituloController.text,
-                      'dataHora': _dataHoraSelecionada,
+                      'prioridade': _prioridadeSelecionada,
+                      'diaSemana': _diaSemanaSelecionado,
                       'userId': widget.user.uid,
                       'concluido': false,
-                      'prioridade': _prioridadeSelecionada,
-                    });
+                    };
+
+                    if (_dataHoraSelecionada != null) {
+                      tarefaData['dataHora'] = _dataHoraSelecionada as Object;
+                    }
+
+                    await _firestore.collection('tarefas_escolares').add(tarefaData);
 
                     _tituloController.clear();
                     _dataHoraSelecionada = null;
                     _prioridadeSelecionada = "Média";
+                    _diaSemanaSelecionado = 'Segunda-feira';
                     Navigator.pop(context);
                   }
                 },
@@ -130,10 +151,12 @@ class _TelaAgendaEscolarState extends State<TelaAgendaEscolar> {
         title: const Text('Agenda Escolar'),
         centerTitle: true,
         backgroundColor: Minhascores.Rosapastel,
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _mostrarModalAdicionarTarefa(context),
-        child: const Icon(Icons.add_box_outlined),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add_box_outlined),
+            onPressed: () => _mostrarModalAdicionarTarefa(context),
+          ),
+        ],
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: _firestore
@@ -174,8 +197,12 @@ class _TelaAgendaEscolarState extends State<TelaAgendaEscolar> {
             itemCount: tarefas.length,
             itemBuilder: (context, index) {
               final tarefa = tarefas[index];
-              final dataHora = (tarefa['dataHora'] as Timestamp).toDate();
-              final formatada = DateFormat('dd/MM/yyyy HH:mm').format(dataHora);
+              final dataHora = tarefa['dataHora'] != null
+                  ? (tarefa['dataHora'] as Timestamp).toDate()
+                  : null;
+              final formatada = dataHora != null
+                  ? DateFormat('dd/MM/yyyy').format(dataHora)
+                  : 'Sem data definida';
 
               return Card(
                 margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
@@ -207,6 +234,14 @@ class _TelaAgendaEscolarState extends State<TelaAgendaEscolar> {
                       const SizedBox(height: 8.0),
                       Text(
                         'Prioridade: ${tarefa['prioridade']}',
+                        style: const TextStyle(
+                          fontSize: 14.0,
+                          color: Colors.blueGrey,
+                        ),
+                      ),
+                      const SizedBox(height: 8.0),
+                      Text(
+                        'Dia da semana: ${tarefa['diaSemana']}',
                         style: const TextStyle(
                           fontSize: 14.0,
                           color: Colors.blueGrey,

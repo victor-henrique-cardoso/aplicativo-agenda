@@ -14,9 +14,24 @@ class AgendaHomePage extends StatefulWidget {
   _AgendaHomePageState createState() => _AgendaHomePageState();
 }
 
-class _AgendaHomePageState extends State<AgendaHomePage> {
-  final Stream<QuerySnapshot> _eventosStream =
-      FirebaseFirestore.instance.collection('eventos').snapshots();
+class _AgendaHomePageState extends State<AgendaHomePage> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  final List<String> _diasSemana = [
+    'Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 
+    'Quinta-feira', 'Sexta-feira', 'Sábado'
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: _diasSemana.length, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
   void _excluirEvento(String id) async {
     try {
@@ -38,140 +53,116 @@ class _AgendaHomePageState extends State<AgendaHomePage> {
         title: const Text('Minha Agenda'),
         centerTitle: true,
         backgroundColor: Minhascores.Rosapastel,
-      ),
-      floatingActionButton: FloatingActionButton(
-        child: const Icon(Icons.add_box_outlined),
-        onPressed: () {
-          mostramodalcriaragenda(context);
-        },
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add_box_outlined),
+            onPressed: () {
+              mostramodalcriaragenda(context);
+            },
+          ),
+        ],
+        bottom: TabBar(
+          controller: _tabController,
+          isScrollable: true,
+          indicatorColor: Colors.white,
+          tabs: _diasSemana.map((dia) => Tab(text: dia)).toList(),
+        ),
       ),
       backgroundColor: Minhascores.begeclaro,
-      body: StreamBuilder<QuerySnapshot>(
-        stream: _eventosStream,
-        builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> snapshot) {
-          if (snapshot.hasError) {
-            return const Center(child: Text('Algo deu errado'));
-          }
-
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          List<Map<String, dynamic>> eventosOrdenados = snapshot.data!.docs
-              .map((DocumentSnapshot document) {
-                Map<String, dynamic> data = document.data() as Map<String, dynamic>;
-
-                if (data['userId'] == widget.user.uid) {
-                  DateTime? dataHora;
-                  if (data['dataHora'] != null) {
-                    if (data['dataHora'] is Timestamp) {
-                      dataHora = (data['dataHora'] as Timestamp).toDate();
-                    } else {
-                      dataHora = DateTime.parse(data['dataHora']);
-                    }
-                  }
-                  return {
-                    'id': document.id,
-                    'titulo': data['titulo'] ?? "Sem título",
-                    'dataHora': dataHora,
-                    'concluido': data['concluido'] ?? false,
-                  };
-                }
-                return null;
-              })
-              .where((evento) => evento != null)
-              .cast<Map<String, dynamic>>()
-              .toList();
-
-          eventosOrdenados.sort((a, b) {
-            final dataHoraA = a['dataHora'];
-            final dataHoraB = b['dataHora'];
-
-            if (dataHoraA == null && dataHoraB == null) return 0;
-            if (dataHoraA == null) return 1;
-            if (dataHoraB == null) return -1;
-            return dataHoraA.compareTo(dataHoraB);
-          });
-
-          return ListView.builder(
-            itemCount: eventosOrdenados.length,
-            itemBuilder: (context, index) {
-              final evento = eventosOrdenados[index];
-
-              String dataHoraFormatada = "Sem data";
-              if (evento['dataHora'] != null) {
-                dataHoraFormatada =
-                    DateFormat('dd/MM/yyyy HH:mm').format(evento['dataHora']);
+      body: TabBarView(
+        controller: _tabController,
+        children: _diasSemana.map((diaSelecionado) {
+          return StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance.collection('eventos').snapshots(),
+            builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> snapshot) {
+              if (snapshot.hasError) {
+                return const Center(child: Text('Algo deu errado'));
               }
 
-              return Card(
-                margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-                elevation: 10,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.0),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        evento['titulo'],
-                        style: const TextStyle(
-                          fontSize: 18.0,
-                          fontWeight: FontWeight.bold,
-                          color: Minhascores.Rosapastel,
-                        ),
-                      ),
-                      const SizedBox(height: 8.0),
-                      Text(
-                        dataHoraFormatada,
-                        style: TextStyle(
-                          fontSize: 14.0,
-                          color: Colors.grey[700],
-                        ),
-                      ),
-                      const SizedBox(height: 12.0),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              List<Map<String, dynamic>> eventosFiltrados = snapshot.data!.docs
+                  .map((DocumentSnapshot document) {
+                    Map<String, dynamic> data = document.data() as Map<String, dynamic>;
+                    if (data['userId'] == widget.user.uid && data['diaSemana'] == diaSelecionado) {
+                      return {
+                        'id': document.id,
+                        'titulo': data['titulo'] ?? "Sem título",
+                        'concluido': data['concluido'] ?? false,
+                      };
+                    }
+                    return null;
+                  })
+                  .where((evento) => evento != null)
+                  .cast<Map<String, dynamic>>()
+                  .toList();
+
+              return ListView.builder(
+                itemCount: eventosFiltrados.length,
+                itemBuilder: (context, index) {
+                  final evento = eventosFiltrados[index];
+
+                  return Card(
+                    margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+                    elevation: 10,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12.0),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            evento['concluido'] ? 'Concluído' : 'Pendente',
-                            style: TextStyle(
-                              fontSize: 14.0,
-                              color: evento['concluido']
-                                  ? Colors.green
-                                  : Colors.red,
+                            evento['titulo'],
+                            style: const TextStyle(
+                              fontSize: 18.0,
+                              fontWeight: FontWeight.bold,
+                              color: Minhascores.Rosapastel,
                             ),
                           ),
+                          const SizedBox(height: 12.0),
                           Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Checkbox(
-                                value: evento['concluido'],
-                                onChanged: (value) async {
-                                  await FirebaseFirestore.instance
-                                      .collection('eventos')
-                                      .doc(evento['id'])
-                                      .update({'concluido': value});
-                                },
-                              ),
-                              // Exibe o botão de exclusão apenas se o evento estiver concluído.
-                              if (evento['concluido'])
-                                IconButton(
-                                  icon: const Icon(Icons.delete, color: Colors.red),
-                                  onPressed: () => _excluirEvento(evento['id']),
+                              Text(
+                                evento['concluido'] ? 'Concluído' : 'Pendente',
+                                style: TextStyle(
+                                  fontSize: 14.0,
+                                  color: evento['concluido'] ? Colors.green : Colors.red,
                                 ),
+                              ),
+                              Row(
+                                children: [
+                                  Checkbox(
+                                    value: evento['concluido'],
+                                    onChanged: (value) async {
+                                      await FirebaseFirestore.instance
+                                          .collection('eventos')
+                                          .doc(evento['id'])
+                                          .update({'concluido': value});
+                                    },
+                                  ),
+                                  if (evento['concluido'])
+                                    IconButton(
+                                      icon: const Icon(Icons.delete, color: Colors.red),
+                                      onPressed: () => _excluirEvento(evento['id']),
+                                    ),
+                                ],
+                              ),
                             ],
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
+                    ),
+                  );
+                },
               );
             },
           );
-        },
+        }).toList(),
       ),
     );
   }

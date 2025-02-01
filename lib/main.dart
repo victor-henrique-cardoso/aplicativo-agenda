@@ -5,10 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:agendaapp/Telas/teladeagenda.dart';
-
+import 'package:intl/date_symbol_data_local.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+    await initializeDateFormatting('pt_BR', null);
   
   // Inicializa o Firebase com as configurações do arquivo firebase_options.dart.
   await Firebase.initializeApp(
